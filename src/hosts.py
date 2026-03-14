@@ -1,5 +1,5 @@
 from textual.app import App, ComposeResult
-from textual.widgets import Footer, Header, TextArea, Static, DataTable
+from textual.widgets import Footer, Header, TextArea, Static, DataTable, SelectionList
 from textual.containers import Horizontal, Vertical, VerticalScroll, HorizontalGroup, VerticalGroup, Container
 from textual.screen import Screen,ModalScreen
 from rich.text import Text
@@ -69,23 +69,27 @@ class ScanScreen(ModalScreen):
               ('r','run_scan','Run scan from interface')]
 
     interfaces=[] # rempli avec la biblio ifaddr
-    inetDisplay=[] # parsage et ajustement des interfaces
+     # parsage et ajustement des interfaces
 
     def compose(self) -> ComposeResult :
-        yield DataTable()
-    
-    def on_mount(self) -> None:
-
         self.interfaces=ifs.get_adapters()
-
-        table = self.query_one(DataTable)
-        table.add_columns('interface','ip','mac')
+        inetDisplay=[]
+        #table = self.query_one(DataTable)
+        #table.add_columns('interface','ip','mac')
 
         for index,interface in enumerate(self.interfaces,start=1) :
-            label = Text(str(index), style="italic #03AC13", justify="right") 
-            row=(interface.nice_name,interface.ips[0].ip+'/'+str(interface.ips[0].network_prefix))
+            #label = Text(str(index), style="italic #03AC13", justify="right") 
+            interfaceName = interface.nice_name+" "+interface.ips[0].ip+'/'+str(interface.ips[0].network_prefix)
+            row=(interfaceName,interface.nice_name)
+            inetDisplay.append(row)
             #self.inetDisplay.append(vars(interface))
-            table.add_row(*row,label=label)
+            #table.add_row(*row,label=label)
+        with Horizontal(id="HorizontalList"):
+            yield SelectionList[str](*inetDisplay)
+
+    def on_mount(self) -> None:
+        self.query_one(SelectionList).border_title = "Wich interface to scan ?"
+
         return
 
     def action_quit(self) -> None:
@@ -93,17 +97,20 @@ class ScanScreen(ModalScreen):
         self.app.pop_screen()
     
     def action_run_scan(self) -> None:
-        table = self.query_one(DataTable)
-        row_key, _ = table.coordinate_to_cell_key(table.cursor_coordinate)
-
-        index=table.get_row_index(row_key)
-        nice_name=table.get_row_at(index)[0] # première colonne = nice_name
-
-        table.remove_row(row_key)
+        #table = self.query_one(DataTable)
+        #row_key, _ = table.coordinate_to_cell_key(table.cursor_coordinate)
         
+        #index=table.get_row_index(row_key)
+        #nice_name=table.get_row_at(index)[0] # première colonne = nice_name
+
+        #table.remove_row(row_key)
+        selected_list = self.query_one(SelectionList).selected
+        #self.dismiss(selected_list)
+        toDismiss=[]
         for i in self.interfaces :
-            if i.nice_name==nice_name:
-                self.dismiss([i])
+            if i.nice_name in selected_list :
+                toDismiss.append(i)
+        self.dismiss(toDismiss)
         #self.dismiss(self.inetDisplay[index])
 
 class Host():

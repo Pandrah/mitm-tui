@@ -2,3 +2,23 @@
 	/*background:$panel;*/
 	border:none;
 }
+
+#scan-screen{
+
+	align: center middle;
+	width: 5;
+}
+
+SelectionList{
+	padding:1;
+	border: solid $accent;
+	width: 1fr;
+}
+
+#HorizontalList{
+	align: center middle;
+
+	width:40%;
+	height:auto;
+
+}
