@@ -1,0 +1,40 @@
+#app-layout {
+	layout:grid;
+	grid-size: 2;
+	grid-columns: 1fr;
+	grid-rows: 1fr;
+}
+
+
+#wireshark-container {
+    width: 100%;
+    height: 100%;
+    row-span: 2;
+   /*background: $panel;*/
+    border: dodgerblue;
+	
+}
+#wireshark-container > Static {
+    background: $boost;
+    color: auto;
+    margin-bottom: 1;
+    padding: 1;
+}
+
+#hosts-container {
+    height: 100%;
+    /*background: $panel;*/
+    border: mediumvioletred;	
+
+}
+
+#attacks-container {
+    height: 100%;
+    /*layout: grid;
+    grid-size: 3;
+    grid-columns: 1fr;
+    grid-rows: 1fr;
+    grid-gutter: 1;
+    background: $panel;*/
+    border: greenyellow;
+}
