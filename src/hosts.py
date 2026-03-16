@@ -8,13 +8,14 @@ import ipaddress
 
 
 class HostWidget(VerticalScroll):
-    hostsTable=[("hostname","ip","mac","interface"),
-                ("lua","1.12.156.133","AC:BC:CC:CD:EF:CD"),
-                ("lua","1.12.156.133","AC:BC:CC:CD:EF:CD"),
-                ("lua","1.12.156.133","AC:BC:CC:CD:EF:CD")]
-
+    
     CSS_PATH = "../assets/host-widget.tcss"
     BINDINGS = [("c", "add_row", "Scan hosts"),("s", "scan", "Scan hosts")]
+
+    
+    hostsTable=[("hostname","ip","mac","interface")]
+    current_scans=[] # interface name list on which a scan is performed
+
     def compose(self) -> ComposeResult:
         yield DataTable()
         
@@ -37,6 +38,24 @@ class HostWidget(VerticalScroll):
 
     def action_scan(self): #fonction qui invoque l'écran de scan
 
+        def pingSweep(interfaces: []) -> None:
+            table = self.query_one(DataTable)
+            for interface in interfaces:
+                nice_name,ip,nw_prefix=(interface.nice_name,interface.ips[0].ip,str(interface.ips[0].network_prefix))
+                ipnw = ipaddress.IPv4Interface(ip+"/"+nw_prefix)
+                inet = ipnw.network
+                network = ipaddress.ip_network(inet) # Creates subnet object
+                for ips in network:
+                    label= Text(str(table.row_count), style="italic #03AC13", justify="right")
+                    row="hostname",ips,"mac",nice_name # Access each IP in that subnet
+                    table.add_row(*row,label=label)
+            # avoir notre ip selon l'interface
+            # puis le réseau et le masque de sous réseau
+            # définir la plage d'ips à balayer
+            # pinguer toutes les ips
+            # voir les paquets retournés
+            return None
+
         def displayInterfaces(interfaces: list|None): #fonction qui scannera le network pour avoir les hosts
 
             table = self.query_one(DataTable)
@@ -47,21 +66,9 @@ class HostWidget(VerticalScroll):
                 row=(nice_name,ip+'/'+nw_prefix)
                 label= Text(str(table.row_count), style="italic #03AC13", justify="right")
                 table.add_row(*row,label=label)
-#            if interface_row is not None:
-#                label= Text(str(table.row_count), style="italic #03AC13", justify="right")
-#                table.add_row(interface_row,label=label)
 
-        self.app.push_screen(ScanScreen(id="scan-screen"),displayInterfaces)
+        self.app.push_screen(ScanScreen(id="scan-screen"),pingSweep)
     # pour le moment on affiche l'interface cliquée
-
-    def pingSweep(interface:str) -> None:
-        
-        # avoir notre ip selon l'interface
-        # puis le réseau et le masque de sous réseau
-        # définir la plage d'ips à balayer
-        # pinguer toutes les ips
-        # voir les paquets retournés
-        return None
 
 class ScanScreen(ModalScreen):
     CSS_PATH = "../assets/host-widget.tcss"
@@ -72,7 +79,7 @@ class ScanScreen(ModalScreen):
      # parsage et ajustement des interfaces
 
     def compose(self) -> ComposeResult :
-        self.interfaces=ifs.get_adapters()
+        self.interfaces=ifs.get_adapters() # retourne le type IP()
         inetDisplay=[]
         #table = self.query_one(DataTable)
         #table.add_columns('interface','ip','mac')
@@ -86,6 +93,7 @@ class ScanScreen(ModalScreen):
             #table.add_row(*row,label=label)
         with Horizontal(id="HorizontalList"):
             yield SelectionList[str](*inetDisplay)
+            yield Footer()
 
     def on_mount(self) -> None:
         self.query_one(SelectionList).border_title = "Wich interface to scan ?"
