@@ -23,4 +23,8 @@ class attaque:
 - pouvoir cancel le scan ping sweep ?
 le faire en threadé avec la progress bar de textual
 afficher le temps de scan restant ?
+
+
+attention au masque de sous réseau trop petit, on peut rester bloqué à scanner pendant trop longtemps
+
 requirements.txt
