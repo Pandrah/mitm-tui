@@ -1,6 +1,7 @@
+import math
 from textual import work
 from textual.app import App, ComposeResult
-from textual.widgets import Footer, Header, TextArea, Static, DataTable, SelectionList
+from textual.widgets import Footer, Header, TextArea, Static, DataTable, SelectionList, ProgressBar
 from textual.containers import Horizontal, Vertical, VerticalScroll, HorizontalGroup, VerticalGroup, Container
 from textual.screen import Screen,ModalScreen
 from rich.text import Text
@@ -8,6 +9,7 @@ import ifaddr as ifs
 import ipaddress
 import threading as th
 import asyncio as asy
+from ping3 import ping
 
 class HostWidget(VerticalScroll):
     
@@ -20,6 +22,7 @@ class HostWidget(VerticalScroll):
 
     def compose(self) -> ComposeResult:
         yield DataTable()
+        yield ProgressBar(total=100,show_eta=False)
         
 
     def action_add_row(self): #fonction qui scannera le network pour avoir les hosts
@@ -39,54 +42,82 @@ class HostWidget(VerticalScroll):
     
     async def action_scan(self): #fonction qui invoque l'écran de scan
         async def launch_thread(interfaces: []):
-           if len(interfaces) > 0:
-           #     t = th.Thread(target=pingSweep, args=interfaces)
-               self.run_worker(self.pingSweep(interfaces))
-           #     t.start()
+           for i in interfaces :
+               self.run_worker(self.pingSweep(i))
 
         self.app.push_screen(ScanScreen(id="scan-screen"),self.pingSweep)
         return
         # pour le moment on affiche l'interface cliquée
 
     @work(thread=True)
-    def pingSweep(self,interfaces: []) -> None:
-
-        async def ping(ip : str):
-            return "" #faire le vrai ping ici
-
+    async def pingSweep(self,interface) -> None:
         table = self.query_one(DataTable)
-
-        for interface in interfaces:
-            nice_name,ip,nw_prefix=(interface.nice_name, interface.ips[0].ip, str(interface.ips[0].network_prefix))
-            ipnw = ipaddress.IPv4Interface(ip+"/"+nw_prefix) #192.168.1.0/24
-            inet = ipnw.network
-
-            #@work(exclusive=True)
-            #async def fill():
-            network = ipaddress.ip_network(inet) # Creates subnet object
-            for ips in network:
+        bar = self.query_one(ProgressBar)
+        s = Scan(interface)
+        ip,nice_name=s.getIP(),s.getNiceName()
+        for ips,progress in s.run():
+            bar.update(progress=progress)
+            if ips != None:
                 label= Text(str(table.row_count), style="italic #03AC13", justify="right")
                 row="hostname",ips,"mac",nice_name # Access each IP in that subnet
                 self.app.call_from_thread(table.add_row,*row,label=label)
-            #await fill()
+        return None
+
+       # def displayInterfaces(interfaces: list|None): 
+       #     # écriture des ips en parallèle, on veut pas rester bloquer lorsque le masque de sous réseau est trop petit
+       #     table = self.query_one(DataTable)
+       #     for index,interface in enumerate(interfaces):
+       #         nice_name,ip,nw_prefix=(interface.nice_name,interface.ips[0].ip,str(interface.ips[0].network_prefix))
+       #         row=(nice_name,ip+'/'+nw_prefix)
+       #         label= Text(str(table.row_count), style="italic #03AC13", justify="right")
+       #         table.add_row(*row,label=label)
+
+class Scan():
+    def __init__(self,interface):
+        self.hosts=[]
+        self.interface = interface[0] #object
+        self.status=False # True = running, False = not running
+        self.nice_name = self.interface.nice_name  # "eth0"
+        self.ip = self.interface.ips[0].ip  # 192.168.1.1
+        self.nw_prefix = str(self.interface.ips[0].network_prefix) # 24
+        self.ipnw = ipaddress.IPv4Interface(self.ip+"/"+self.nw_prefix) # 192.168.1.1/24
+        self.inet = self.ipnw.network # 192.168.1.0/24
+        self.network = ipaddress.ip_network(self.inet,strict=False) # all possible ips Creates subnet object
+        for ip in self.network:
+            self.hosts.append(str(ip))
+        del self.hosts[-1] # we don't ping broadcast
+        self.length=len(self.hosts)
         # avoir notre ip selon l'interface
         # puis le réseau et le masque de sous réseau
         # définir la plage d'ips à balayer
         # pinguer toutes les ips
         # voir les paquets retournés
-        return None
 
-        def displayInterfaces(interfaces: list|None): 
-            # écriture des ips en parallèle, on veut pas rester bloquer lorsque le masque de sous réseau est trop petit
-            table = self.query_one(DataTable)
+    def toggleStatus(self):
+        self.status = not self.status
+    def getStatus(self):
+        return self.status
+    def setStatus(self,status):
+        self.status=status
+    def getNiceName(self):
+        return self.nice_name
+    def getIP(self):
+        return self.ip
 
-            for index,interface in enumerate(interfaces):
+    def run(self):
+        if self.nice_name == 'lo':
+            return
 
-                nice_name,ip,nw_prefix=(interface.nice_name,interface.ips[0].ip,str(interface.ips[0].network_prefix))
-                row=(nice_name,ip+'/'+nw_prefix)
-                label= Text(str(table.row_count), style="italic #03AC13", justify="right")
-                table.add_row(*row,label=label)
+        def pingIP(ip : str)-> bool: #on peut yield les ips qui ont répondu
+                    r = ping(ip, timeout=1)
+                    return r #faire le vrai ping ici
 
+        for index,ips in enumerate(self.hosts):
+            r = pingIP(ips) # ping à faire en parallèle
+            if r != None:
+                yield ips,math.ceil(index*100/self.length)
+            else:
+                yield None,math.ceil(index*100/self.length)
 
 class ScanScreen(ModalScreen):
     CSS_PATH = "../assets/host-widget.tcss"
