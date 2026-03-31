@@ -1,6 +1,8 @@
 #host-widget{
 	/*background:$panel;*/
 	border:none;
+	layout:grid;
+	align: center top;
 }
 
 #scan-screen{
@@ -21,4 +23,9 @@ SelectionList{
 	width:40%;
 	height:auto;
 
+}
+
+#prog-bar{
+	margin-bottom: 0;
+	dock: bottom;
 }

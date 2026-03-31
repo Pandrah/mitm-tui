@@ -8,7 +8,7 @@ from rich.text import Text
 import ifaddr as ifs
 import ipaddress
 import threading as th
-import asyncio as asy
+import asyncio 
 from ping3 import ping
 
 class HostWidget(VerticalScroll):
@@ -21,25 +21,29 @@ class HostWidget(VerticalScroll):
     current_scans=[] # interface name list on which a scan is performed
 
     def compose(self) -> ComposeResult:
-        yield DataTable()
-        yield ProgressBar(total=100,show_eta=False)
-        
+        with VerticalScroll():
+            yield DataTable()
+        yield ProgressBar(total=100,show_eta=True, id="prog-bar")
+        #yield Footer()
 
+    def on_mount(self) -> None:
+        table = self.query_one(DataTable)
+        table.add_columns(*self.hostsTable[0])
+        self.query_one(ProgressBar).update(progress=0)
+#        for number, row in enumerate(self.hostsTable[1:], start=1):
+#            # Adding styled and justified `Text` objects instead of plain strings.
+#            label = Text(str(number), style="italic #03AC13", justify="right") 
+#            table.add_row(*row,label=label)      
+        self.refresh()
+        return
+ 
     def action_add_row(self): #fonction qui scannera le network pour avoir les hosts
         table = self.query_one(DataTable)
         row=("hostbonjour","18.118.218.21","AA:BB:CC:BB:AA:FF")
         label= Text(str(table.row_count), style="italic #03AC13", justify="right")
         table.add_row(*row,label=label)
     
-    def on_mount(self) -> None:
-        table = self.query_one(DataTable)
-        table.add_columns(*self.hostsTable[0])
-#        for number, row in enumerate(self.hostsTable[1:], start=1):
-#            # Adding styled and justified `Text` objects instead of plain strings.
-#            label = Text(str(number), style="italic #03AC13", justify="right") 
-#            table.add_row(*row,label=label)      
-        return
-    
+   
     async def action_scan(self): #fonction qui invoque l'écran de scan
         async def launch_thread(interfaces: []):
            for i in interfaces :
@@ -55,7 +59,8 @@ class HostWidget(VerticalScroll):
         bar = self.query_one(ProgressBar)
         s = Scan(interface)
         ip,nice_name=s.getIP(),s.getNiceName()
-        for ips,progress in s.run():
+
+        async for ips,progress in s.run():
             bar.update(progress=progress)
             if ips != None:
                 label= Text(str(table.row_count), style="italic #03AC13", justify="right")
@@ -104,20 +109,32 @@ class Scan():
     def getIP(self):
         return self.ip
 
-    def run(self):
+    async def run(self):
         if self.nice_name == 'lo':
             return
 
-        def pingIP(ip : str)-> bool: #on peut yield les ips qui ont répondu
-                    r = ping(ip, timeout=1)
-                    return r #faire le vrai ping ici
+        async def pingIP(ip : str)-> bool: #on peut yield les ips qui ont répondu
+                    r = await asyncio.to_thread(ping,ip, timeout=1)
+                    return ip if r is not None else None #faire le vrai ping ici
 
-        for index,ips in enumerate(self.hosts):
-            r = pingIP(ips) # ping à faire en parallèle
-            if r != None:
-                yield ips,math.ceil(index*100/self.length)
-            else:
-                yield None,math.ceil(index*100/self.length)
+        tasks = [pingIP(ip) for ip in self.hosts]
+
+            # 2. On exécute tout en parallèle
+            # asyncio.gather attend que TOUT soit fini
+        #async for index,coro in enumerate(asyncio.as_completed(tasks)):
+        #    r = await coro
+        #    yield r,math.ceil(index*100/self.length)
+        #results = await asyncio.gather(*tasks)
+        #for index,ips in enumerate(self.hosts):
+        #    r = await pingIP(ips) # ping à faire en parallèle
+        #    if r != None:
+        #        yield ips,math.ceil(index*100/self.length)
+        #    else:
+        #        yield None,math.ceil(index*100/self.length)
+        for index,finished_task in enumerate(asyncio.as_completed(tasks)):
+            result = await finished_task
+            yield result,math.ceil(index*100/self.length)
+
 
 class ScanScreen(ModalScreen):
     CSS_PATH = "../assets/host-widget.tcss"
