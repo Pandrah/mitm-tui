@@ -1,3 +1,4 @@
+#!/usr/bin/python
 from src import app
 import argparse
 

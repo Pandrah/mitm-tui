@@ -1,4 +1,4 @@
-from src import hosts
+from src import hosts_widget
 
 from textual.app import App, ComposeResult
 from textual.widgets import Footer, Header, TextArea, Static, DataTable
@@ -31,7 +31,7 @@ class mitmApp(App):
                     yield Static(f"Vertical layout, child {number}")
 
             with HostsContainer(id="hosts-container"):
-                yield hosts.HostWidget(id="host-widget")
+                yield hosts_widget.HostWidget(id="host-widget")
             
             with AttacksContainer(id="attacks-container"):
                 yield Static("Attack container")
