@@ -1,5 +1,6 @@
 from scapy.all import getmacbyip
 import socket 
+from textual import log
 
 class Host():
    hosts=[]
@@ -15,7 +16,7 @@ class Host():
             assert ip or mac # one of the two information has to be defined
             #if ip : #get mac
             #elif mac : #get ip
-        
+            log("getting mac adress")
             self.getMac()
             self.getHostname()
         except:
@@ -29,8 +30,8 @@ class Host():
        return ""
 
    def getMac(self) -> str:
-       self.mac = getmacbyip("192.168.1.10") # use root permission
-       return ""
+       self.mac = getmacbyip(self.ip) # use root permission
+       return self.mac
 
    def getIPmacHostname(self):
        return self.ip,self.mac,self.hostname

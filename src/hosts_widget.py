@@ -11,6 +11,7 @@ import threading as th
 import asyncio 
 from ping3 import ping
 from src import hosts
+import scapy.all as scapy
 
 class HostWidget(VerticalScroll):
     
@@ -18,7 +19,7 @@ class HostWidget(VerticalScroll):
     BINDINGS = [("c", "add_row", "add row"),("s", "scan", "Scan hosts")]
 
     
-    hostsTable=[("hostname","ip","mac","interface")]
+    hostsTable=[("hostname","time","ip","mac","interface")]
     current_scans=[] # interface name list on which a scan is performed
 
     def compose(self) -> ComposeResult:
@@ -43,17 +44,43 @@ class HostWidget(VerticalScroll):
         row=("hostbonjour","18.118.218.21","AA:BB:CC:BB:AA:FF")
         label= Text(str(table.row_count), style="italic #03AC13", justify="right")
         table.add_row(*row,label=label)
-    
    
+  
     async def action_scan(self): #fonction qui invoque l'écran de scan
         async def launch_thread(interfaces: []):
-           for i in interfaces :
-               self.pingSweep(i)
+            method=interfaces[0]
+            del interfaces[0]
+            if method=="icmp":
+                for i in interfaces :
+                   self.pingSweep(i)
+            elif method=="arp":
+                for i in interfaces:
+                    self.arp_scan(i)
 
         self.app.push_screen(ScanScreen(id="scan-screen"),launch_thread)
         return
         # pour le moment on affiche l'interface cliquée
+    @work(thread=True)
+    async def arp_scan(self,interface):
+        table = self.query_one(DataTable)
+        bar = self.query_one(ProgressBar)
 
+        scan = Scan(interface)
+        nice_name=scan.getNiceName()
+        ip_range=scan.getInet() #192.168.1.0/24
+        arp_request = scapy.ARP(pdst=ip_range)
+        broadcast = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
+        arp_request_broadcast = broadcast / arp_request
+        answered_list = scapy.srp(arp_request_broadcast, timeout=5, verbose=False)[0]
+
+        for element in answered_list:
+            ip,mac = element[1].psrc, element[1].hwsrc
+            h = hosts.Host(ip=ip,mac=mac)
+            label= Text(str(table.row_count), style="italic #03AC13", justify="right")
+            row = '',0,ip,mac,nice_name
+            self.app.call_from_thread(table.add_row,*row,label=label)
+        return ''
+   
     @work(thread=True)
     async def pingSweep(self,interface) -> None:
         table = self.query_one(DataTable)
@@ -61,13 +88,14 @@ class HostWidget(VerticalScroll):
         s = Scan(interface)
         ip,nice_name=s.getIP(),s.getNiceName()
 
-        async for ips,progress in s.run():
+        async for ip,progress,time in s.run():
             bar.update(progress=progress)
-            if ips != None:
+            if ip != None and type(time) is float:
                 label= Text(str(table.row_count), style="italic #03AC13", justify="right")
-                h = hosts.Host(ip=ips)
+                h = hosts.Host(ip=ip)
+                #mac=h.getMac()
                 ip,mac,hostname=h.getIPmacHostname()
-                row=hostname,ips,mac,nice_name # Access each IP in that subnet
+                row=hostname,time,ip,mac,nice_name # Access each IP in that subnet
                 self.app.call_from_thread(table.add_row,*row,label=label)
         return None
 
@@ -80,16 +108,17 @@ class HostWidget(VerticalScroll):
        #         label= Text(str(table.row_count), style="italic #03AC13", justify="right")
        #         table.add_row(*row,label=label)
 
+    
 class Scan():
     def __init__(self,interface):
-        self.hosts=[]
+        self.hosts=[] # ip hosts to scan
         self.interface = interface #object
         self.status=False # True = running, False = not running
         self.nice_name = self.interface.nice_name  # "eth0"
         self.ip = self.interface.ips[0].ip  # 192.168.1.1
         self.nw_prefix = str(self.interface.ips[0].network_prefix) # 24
         self.ipnw = ipaddress.IPv4Interface(self.ip+"/"+self.nw_prefix) # 192.168.1.1/24
-        self.inet = self.ipnw.network # 192.168.1.0/24
+        self.inet = str(self.ipnw.network) # 192.168.1.0/24
         self.network = ipaddress.ip_network(self.inet,strict=False) # all possible ips Creates subnet object
         for ip in self.network:
             self.hosts.append(str(ip))
@@ -100,7 +129,8 @@ class Scan():
         # définir la plage d'ips à balayer
         # pinguer toutes les ips
         # voir les paquets retournés
-
+    def getInet(self):
+        return self.inet
     def toggleStatus(self):
         self.status = not self.status
     def getStatus(self):
@@ -116,13 +146,15 @@ class Scan():
         if self.nice_name == 'lo':
             return
 
-        async def pingIP(ip : str)-> bool: #on peut yield les ips qui ont répondu
-                    r = await asyncio.to_thread(ping,ip, timeout=1)
-                    if r is not None:
-                        if r != False: # ne pas mettre r == True parce que c'est un float sinon
-                            return ip
+        async def pingIP(ip : str): #on peut yield les ips qui ont répondu
+                    time = await asyncio.to_thread(ping,ip, timeout=1)
+                    if time is not None:
+                        if type(time) is float and time < 1: # ne pas mettre r == True parce que c'est un float sinon
+                            return ip,time
                         else : 
-                            return None
+                            return None,None
+                    else : 
+                        return None,None
                     #return ip if (r or r is not None) else None #faire le vrai ping ici
 
         tasks = [pingIP(ip) for ip in self.hosts]
@@ -139,14 +171,15 @@ class Scan():
         #    else:
         #        yield None,math.ceil(index*100/self.length)
         for index,finished_task in enumerate(asyncio.as_completed(tasks)):
-            result = await finished_task
-            yield result,math.ceil(index*100/self.length)
+            result,time = await finished_task
+            yield result,math.ceil(index*100/self.length),time
 
 
 class ScanScreen(ModalScreen):
     CSS_PATH = "../assets/host-widget.tcss"
     BINDINGS=[('q','quit','Quit'),
-              ('r','run_scan','Run scan from interface')]
+              ('r','run_scan','Run scan from interface'),
+              ('a','run_arp_scan',"Run arp scan")]
 
     interfaces=[] # rempli avec la biblio ifaddr
      # parsage et ajustement des interfaces
@@ -179,6 +212,7 @@ class ScanScreen(ModalScreen):
     
     def action_run_scan(self) -> None:
         selected_list = self.query_one(SelectionList).selected
+        selected_list.insert(0,'icmp')
         self.dismiss(selected_list)
         #toDismiss=[]
         #for i in self.interfaces :
@@ -187,4 +221,7 @@ class ScanScreen(ModalScreen):
         #self.dismiss(toDismiss)
         #self.dismiss(self.inetDisplay[index])
 
-
+    def action_run_arp_scan(self) -> None:
+        selected_list = self.query_one(SelectionList).selected
+        selected_list.insert(0,'arp')
+        self.dismiss(selected_list)
