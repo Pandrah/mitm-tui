@@ -12,6 +12,7 @@ import asyncio
 from ping3 import ping
 from src import hosts
 import scapy.all as scapy
+import subprocess
 
 class HostWidget(VerticalScroll):
     
@@ -147,15 +148,15 @@ class Scan():
             return
 
         async def pingIP(ip : str): #on peut yield les ips qui ont répondu
-                    time = await asyncio.to_thread(ping,ip, timeout=1)
-                    if time is not None:
-                        if type(time) is float and time < 1: # ne pas mettre r == True parce que c'est un float sinon
-                            return ip,time
-                        else : 
-                            return None,None
+                    proc = await asyncio.create_subprocess_exec("ping","-c1",ip,stdout=asyncio.subprocess.DEVNULL) # subprocess.run(['ping','-c1',ip])
+                    await proc.wait()
+                    if proc.returncode  ==0 :
+                        # get the time response
+                        time = await asyncio.to_thread(ping,ip, timeout=1)
+                        #    if type(time) is float and time < 1: # ne pas mettre r == True parce que c'est un float sinon
+                        return ip,time
                     else : 
                         return None,None
-                    #return ip if (r or r is not None) else None #faire le vrai ping ici
 
         tasks = [pingIP(ip) for ip in self.hosts]
 
