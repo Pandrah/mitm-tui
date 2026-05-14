@@ -3,6 +3,7 @@ from src import hosts_widget
 from textual.app import App, ComposeResult
 from textual.widgets import Footer, Header, TextArea, Static, DataTable
 from textual.containers import Horizontal, Vertical, VerticalScroll, HorizontalGroup, VerticalGroup, Container
+from src import warning
 
 class WiresharkContainer(VerticalScroll):
     BORDER_TITLE="Wireshark"
@@ -43,6 +44,8 @@ class mitmApp(App):
         """An action to toggle dark mode."""
         self.theme = ("textual-dark" if self.theme == "textual-light" else "textual-light")
 
+    def warn(self,msg : str)-> None:
+        self.app.push_screen(warning.WarningScreen(msg=msg,id="warning-screen"))
 
 
 def main():

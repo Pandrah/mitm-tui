@@ -1,0 +1,21 @@
+#warning-screen{
+	layout: grid;
+	align: center middle;
+	width: 5;
+	/*border: solid $accent;
+	background:$panel;
+	margin: 4 6;*/
+}
+
+#warning-screen Horizontal{
+	width: 40%;
+	height:auto;
+}
+
+#warning-screen Static {
+	align: center middle;
+	padding:1;
+	border: solid red;
+	width:100%;
+	height: auto;
+}

@@ -13,11 +13,13 @@ from ping3 import ping
 from src import hosts
 import scapy.all as scapy
 import subprocess
+from os import getuid
+from src import warning
 
 class HostWidget(VerticalScroll):
     
     CSS_PATH = "../assets/host-widget.tcss"
-    BINDINGS = [("c", "add_row", "add row"),("s", "scan", "Scan hosts")]
+    BINDINGS = [("s", "scan", "Scan hosts")]
 
     
     hostsTable=[("hostname","time","ip","mac","interface")]
@@ -40,13 +42,6 @@ class HostWidget(VerticalScroll):
         self.refresh()
         return
  
-    def action_add_row(self): #fonction qui scannera le network pour avoir les hosts
-        table = self.query_one(DataTable)
-        row=("hostbonjour","18.118.218.21","AA:BB:CC:BB:AA:FF")
-        label= Text(str(table.row_count), style="italic #03AC13", justify="right")
-        table.add_row(*row,label=label)
-   
-  
     async def action_scan(self): #fonction qui invoque l'écran de scan
         async def launch_thread(interfaces: []):
             method=interfaces[0]
@@ -55,17 +50,23 @@ class HostWidget(VerticalScroll):
                 for i in interfaces :
                    self.pingSweep(i)
             elif method=="arp":
-                for i in interfaces:
-                    self.arp_scan(i)
+                if getuid()!=0:
+                    self.app.warn("root privileges are needed to perform this operation")
+                    #self.app.push_screen(warning.WarningScreen())
+                    return
+                else:
+                    for i in interfaces:
+                        self.arp_scan(i)
 
         self.app.push_screen(ScanScreen(id="scan-screen"),launch_thread)
         return
         # pour le moment on affiche l'interface cliquée
     @work(thread=True)
     async def arp_scan(self,interface):
+
         table = self.query_one(DataTable)
         bar = self.query_one(ProgressBar)
-
+        # TODO : add a verbose label informing the user of the current process
         scan = Scan(interface)
         nice_name=scan.getNiceName()
         ip_range=scan.getInet() #192.168.1.0/24
@@ -73,8 +74,9 @@ class HostWidget(VerticalScroll):
         broadcast = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
         arp_request_broadcast = broadcast / arp_request
         answered_list = scapy.srp(arp_request_broadcast, timeout=5, verbose=False)[0]
-
-        for element in answered_list:
+        l=len(answered_list)-1
+        for index,element in enumerate(answered_list):
+            bar.update(progress=100*index/l)
             ip,mac = element[1].psrc, element[1].hwsrc
             h = hosts.Host(ip=ip,mac=mac)
             label= Text(str(table.row_count), style="italic #03AC13", justify="right")
@@ -226,3 +228,5 @@ class ScanScreen(ModalScreen):
         selected_list = self.query_one(SelectionList).selected
         selected_list.insert(0,'arp')
         self.dismiss(selected_list)
+
+

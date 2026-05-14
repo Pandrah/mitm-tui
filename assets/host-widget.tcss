@@ -6,7 +6,6 @@
 }
 
 #scan-screen{
-
 	align: center middle;
 	width: 5;
 }
