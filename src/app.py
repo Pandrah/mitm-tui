@@ -1,4 +1,4 @@
-from src import hosts_widget
+from src import hosts_widget, warning, attacks_widget
 
 from textual.app import App, ComposeResult
 from textual.widgets import Footer, Header, TextArea, Static, DataTable
@@ -18,13 +18,15 @@ class AttacksContainer(VerticalScroll):
     attacks=[]
 
 class mitmApp(App):
-
+    
     """A Textual app to manage mitm arp attacks"""
 
     BINDINGS = [("d", "toggle_dark", "Toggle dark mode")]
     CSS_PATH = "../assets/layout.tcss"
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
+        
+        self.hosts=[]
 
         with Container(id="app-layout"):
             with WiresharkContainer(id="wireshark-container"):
@@ -35,7 +37,8 @@ class mitmApp(App):
                 yield hosts_widget.HostWidget(id="host-widget")
             
             with AttacksContainer(id="attacks-container"):
-                yield Static("Attack container")
+                yield attacks_widget.AttackWidget(id="attack-widget")
+                #yield Static("Attack container")
 
         yield Header()
         yield Footer()

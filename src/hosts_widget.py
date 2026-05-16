@@ -22,7 +22,7 @@ class HostWidget(VerticalScroll):
     BINDINGS = [("s", "scan", "Scan hosts")]
 
     
-    hostsTable=[("hostname","time","ip","mac","interface")]
+    hostsHeaders=[("hostname","time","ip","mac","interface")]
     current_scans=[] # interface name list on which a scan is performed
 
     def compose(self) -> ComposeResult:
@@ -33,7 +33,7 @@ class HostWidget(VerticalScroll):
 
     def on_mount(self) -> None:
         table = self.query_one(DataTable)
-        table.add_columns(*self.hostsTable[0])
+        table.add_columns(*self.hostsHeaders[0])
         self.query_one(ProgressBar).update(progress=0)
 #        for number, row in enumerate(self.hostsTable[1:], start=1):
 #            # Adding styled and justified `Text` objects instead of plain strings.
@@ -97,6 +97,7 @@ class HostWidget(VerticalScroll):
                 label= Text(str(table.row_count), style="italic #03AC13", justify="right")
                 h = hosts.Host(ip=ip)
                 #mac=h.getMac()
+                self.app.hosts.append(h)
                 ip,mac,hostname=h.getIPmacHostname()
                 row=hostname,time,ip,mac,nice_name # Access each IP in that subnet
                 self.app.call_from_thread(table.add_row,*row,label=label)

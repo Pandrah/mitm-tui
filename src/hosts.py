@@ -1,7 +1,7 @@
 from scapy.all import getmacbyip
 import socket 
 from textual import log
-
+from os import getuid
 class Host():
    hosts=[]
    def __init__(self,hostname="",ip="",mac=""):
@@ -17,20 +17,27 @@ class Host():
             #if ip : #get mac
             #elif mac : #get ip
             log("getting mac adress")
-            self.getMac()
+            self.setMac()
             self.getHostname()
         except:
             raise("an error occured")
 
    def getHostname(self) -> str:
        #name = socket.gethostbyaddr(self.ip)[0]
-        return "" #str(name)
+        return self.hostname #str(name)
 
    def getIp(self) -> str:
-       return ""
+       return self.ip
+
+   def setMac(self):
+       if getuid()!=0:
+           log("Root privileges are needed to obtain mac addresses")
+           self.mac=str("unavailable")
+           return
+       self.mac=getmacbyip(self.ip)
+
 
    def getMac(self) -> str:
-       self.mac = getmacbyip(self.ip) # use root permission
        return self.mac
 
    def getIPmacHostname(self):
