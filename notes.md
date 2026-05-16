@@ -30,3 +30,8 @@ requirements.txt
 
 avoir une option pour scan avec scapy (arp comme dans l'exemple, vérifier si le user est root)
 \nsudo ./venv/bin/python main.py
+
+
+TODO:
+
+refresh button for hosts widget, avoid duplicates

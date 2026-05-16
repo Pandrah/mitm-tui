@@ -19,10 +19,10 @@ from src import warning
 class HostWidget(VerticalScroll):
     
     CSS_PATH = "../assets/host-widget.tcss"
-    BINDINGS = [("s", "scan", "Scan hosts")]
+    BINDINGS = [("s", "scan", "Scan hosts"),("r","refresh","Refresh (feature not available)")]
 
     
-    hostsHeaders=[("hostname","time","ip","mac","interface")]
+    hostsHeaders=("hostname","time","ip","mac","interface","method")
     current_scans=[] # interface name list on which a scan is performed
 
     def compose(self) -> ComposeResult:
@@ -33,32 +33,73 @@ class HostWidget(VerticalScroll):
 
     def on_mount(self) -> None:
         table = self.query_one(DataTable)
-        table.add_columns(*self.hostsHeaders[0])
+        table.add_columns(*self.hostsHeaders)
         self.query_one(ProgressBar).update(progress=0)
 #        for number, row in enumerate(self.hostsTable[1:], start=1):
 #            # Adding styled and justified `Text` objects instead of plain strings.
 #            label = Text(str(number), style="italic #03AC13", justify="right") 
 #            table.add_row(*row,label=label)      
         self.refresh()
+        self.set_interval(1, self.refresh)
+        #self.set_interval(1, self.drawTable) #nul car re scroll
         return
- 
+    
+    def drawTable(self)-> None: #function that fill the table 
+        table=self.query_one(DataTable)
+        table.clear(columns=False)
+        for h in self.app.hosts:
+            row = (h.getHostname(),0,h.getIp(),h.getMac(),h.getInterface(),h.getMethod())
+            label= Text(str(table.row_count), style="italic #03AC13", justify="right")
+            table.add_row(*row,label=label)
+
+    async def action_refresh(self):
+        for h in self.app.hosts:
+            if not h.pingHost():
+                self.app.hosts_ips.remove(h.getIp())
+                self.app.hosts.remove(h)
+            else: 
+                if h.getMac()=="Unavailable":
+                    h.setMac()
+        self.drawTable()
+        #TODO code this
+        return
+
     async def action_scan(self): #fonction qui invoque l'écran de scan
+
+        def add_our_host(interface):
+#            table=self.query_one(Datable)
+            our_hostname = subprocess.check_output("hostname", shell=True).decode().strip()
+            from psutil import net_if_addrs    
+            #our_mac = net_if_addrs()[interface.nice_name][-1].address
+            our_mac = scapy.get_if_hwaddr(interface.nice_name)
+            our_ip  = interface.ips[0].ip
+            our_host=hosts.Host(ip=our_ip,mac=our_mac,hostname=our_hostname)
+            #self.app.call_from_thread(table.add_row,*r,label=label)
+            if our_ip in self.app.hosts_ips: 
+                return
+            self.app.hosts.append(our_host)
+            self.app.hosts_ips.append(our_ip)
+
         async def launch_thread(interfaces: []):
             method=interfaces[0]
             del interfaces[0]
+
+
             if method=="icmp":
                 for i in interfaces :
                    self.pingSweep(i)
+                   add_our_host(i)
             elif method=="arp":
                 if getuid()!=0:
                     self.app.warn("root privileges are needed to perform this operation")
-                    #self.app.push_screen(warning.WarningScreen())
                     return
                 else:
                     for i in interfaces:
+                        add_our_host(i)
                         self.arp_scan(i)
 
         self.app.push_screen(ScanScreen(id="scan-screen"),launch_thread)
+        self.drawTable()
         return
         # pour le moment on affiche l'interface cliquée
     @work(thread=True)
@@ -77,11 +118,13 @@ class HostWidget(VerticalScroll):
         for index,element in enumerate(answered_list):
             bar.update(progress=100*index/l)
             ip,mac = element[1].psrc, element[1].hwsrc
-            h = hosts.Host(ip=ip,mac=mac)
+
+            if ip in self.app.hosts_ips: # avoid double hosts
+                continue
+
+            h = hosts.Host(ip=ip,mac=mac,interface_name=nice_name,method="arp")
             self.app.hosts.append(h)
-            label= Text(str(table.row_count), style="italic #03AC13", justify="right")
-            row = '',0,ip,mac,nice_name
-            self.app.call_from_thread(table.add_row,*row,label=label)
+            self.drawTable()
         return ''
    
     @work(thread=True)
@@ -90,29 +133,26 @@ class HostWidget(VerticalScroll):
         bar = self.query_one(ProgressBar)
         s = Scan(interface)
         ip,nice_name=s.getIP(),s.getNiceName()
-
+        
         async for ip,progress,time in s.run():
             bar.update(progress=progress)
             if ip != None and type(time) is float:
-                label= Text(str(table.row_count), style="italic #03AC13", justify="right")
-                h = hosts.Host(ip=ip)
+
+                if ip in self.app.hosts_ips:
+                    continue # avoid double values
+                h = hosts.Host(ip=ip,interface_name=nice_name,method="ping")
+                h.setMac()
                 #mac=h.getMac()
+
                 self.app.hosts.append(h)
-                ip,mac,hostname=h.getIPmacHostname()
-                row=hostname,time,ip,mac,nice_name # Access each IP in that subnet
-                self.app.call_from_thread(table.add_row,*row,label=label)
+                self.app.hosts_ips.append(ip)
+                #ip,mac,hostname=h.getIPmacHostname()
+                self.drawTable()
+               # row=hostname,time,ip,mac,nice_name # Access each IP in that subnet
+               # self.app.call_from_thread(table.add_row,*row,label=label)
         return None
 
-       # def displayInterfaces(interfaces: list|None): 
-       #     # écriture des ips en parallèle, on veut pas rester bloquer lorsque le masque de sous réseau est trop petit
-       #     table = self.query_one(DataTable)
-       #     for index,interface in enumerate(interfaces):
-       #         nice_name,ip,nw_prefix=(interface.nice_name,interface.ips[0].ip,str(interface.ips[0].network_prefix))
-       #         row=(nice_name,ip+'/'+nw_prefix)
-       #         label= Text(str(table.row_count), style="italic #03AC13", justify="right")
-       #         table.add_row(*row,label=label)
-
-    
+# class for ip ping 
 class Scan():
     def __init__(self,interface):
         self.hosts=[] # ip hosts to scan

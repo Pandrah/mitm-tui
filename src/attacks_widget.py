@@ -14,7 +14,7 @@ from src import hosts
 import scapy.all as scapy
 import subprocess
 from os import getuid
-from src import warning
+from src import warning,attacks
 
 class AttackWidget(VerticalScroll):
     CSS_PATH = "../assets/attack-widget.tcss"
@@ -28,6 +28,7 @@ class AttackWidget(VerticalScroll):
     def on_mount(self):
         table = self.query_one(DataTable)
         table.add_columns(*self.attacksHeader[0])
+        self.refresh
 
 
     def action_new_attack(self):
@@ -38,14 +39,14 @@ class AttackWidget(VerticalScroll):
 
 class NewAttackScreen(ModalScreen):
     CSS_PATH="../assets/attack_screen.tcss"
-    BINDINGS=[('q','quit','quit')]
+    BINDINGS=[('q','quit','quit'),('n','new_attack','Create a new attack')]
 
     def compose(self):
         hosts=self.app.hosts
         with Container():
             yield Select(options=[(h.getIp(),h) for h in hosts],id="victim",type_to_search=True)
-            yield Select(options=[(h.getIp(),h) for h in hosts],id="ip",type_to_search=True)
-            yield Select(options=[(h.getMac(),h) for h in hosts],id="is_at",type_to_search=True)
+            yield Select(options=[(h.getIp(),h.getIp()) for h in hosts],id="ip",type_to_search=True)
+            yield Select(options=[(f"{h.getMac()} - {h.getIp()}",str(h.getMac())) for h in hosts],id="is_at",type_to_search=True)
             yield Switch(id="forwarding_switch")
         yield Footer()
 
@@ -79,3 +80,11 @@ class NewAttackScreen(ModalScreen):
 
     def action_quit(self) -> None:
         self.app.pop_screen()
+
+    def action_new_attack(self) -> None:
+        v=self.query_one("#victim")
+        ip=self.query_one("#ip")
+        is_at=self.query_one("#is_at")
+        forwarding=self.query_one("#forwarding_switch")
+        selected_options = (v.selection,ip.selection,is_at.selection,forwarding) # type Host
+        self.dismiss(selected_options)
