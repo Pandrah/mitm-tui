@@ -29,9 +29,12 @@ class AttackWidget(VerticalScroll):
         table = self.query_one(DataTable)
         table.add_columns(*self.attacksHeader[0])
 
-    def action_new_attack(self):
-        self.app.push_screen(NewAttackScreen(id="new-attacks-screen"))
 
+    def action_new_attack(self):
+        def call_back(victim,ip,is_at):
+            attack = Attack(victim,ip,is_at)
+            self.app.attacks.append(attack)
+        self.app.push_screen(NewAttackScreen(id="new-attacks-screen"),call_back)
 
 class NewAttackScreen(ModalScreen):
     CSS_PATH="../assets/attack_screen.tcss"
@@ -56,18 +59,20 @@ class NewAttackScreen(ModalScreen):
         self.query_one("#ip").border_title="IP"
         self.query_one("#is_at").border_title="Is at"
 
+        self.query_one(Container).border_title = "New attack"
+
         v=self.query_one("#victim")
         ip=self.query_one("#ip")
         is_at=self.query_one("#is_at")
         
         hosts=self.app.hosts
         if len(hosts)==0:
-            v.set_options([("No hosts discovered yet",None)])
-            ip.set_options([("No hosts discovered yet",None )])
-            is_at.set_options([("No hosts discovered yet",None)])
-        else :
-            for h in self.app.hosts:
-                v.set_options([(h.getMac(),h) for h in hosts])
+            v.set_options([("No hosts discovered yet","None")])
+            ip.set_options([("No hosts discovered yet","None" )])
+            is_at.set_options([("No hosts discovered yet","None")])
+        #else :
+        #    for h in self.app.hosts:
+        #        v.set_options([(h.getMac(),h) for h in hosts])
 
             
 

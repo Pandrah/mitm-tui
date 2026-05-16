@@ -63,7 +63,6 @@ class HostWidget(VerticalScroll):
         # pour le moment on affiche l'interface cliquée
     @work(thread=True)
     async def arp_scan(self,interface):
-
         table = self.query_one(DataTable)
         bar = self.query_one(ProgressBar)
         # TODO : add a verbose label informing the user of the current process
@@ -79,6 +78,7 @@ class HostWidget(VerticalScroll):
             bar.update(progress=100*index/l)
             ip,mac = element[1].psrc, element[1].hwsrc
             h = hosts.Host(ip=ip,mac=mac)
+            self.app.hosts.append(h)
             label= Text(str(table.row_count), style="italic #03AC13", justify="right")
             row = '',0,ip,mac,nice_name
             self.app.call_from_thread(table.add_row,*row,label=label)

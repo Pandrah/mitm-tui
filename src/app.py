@@ -27,6 +27,8 @@ class mitmApp(App):
         """Create child widgets for the app."""
         
         self.hosts=[]
+        self.attacks=[]
+        self.hosts_ips=[]
 
         with Container(id="app-layout"):
             with WiresharkContainer(id="wireshark-container"):
