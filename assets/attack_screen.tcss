@@ -1,0 +1,49 @@
+#new-attacks-screen{
+	layout: grid;
+	align: center middle;
+	width: 5;
+	/*border: solid $accent;
+	background:$panel;
+	margin: 4 6;*/
+}
+
+#new-attacks-screen Container{
+	width:90%;
+	layout:horizontal;
+	padding:1;
+	height:45%;
+	border: solid lime;
+}
+
+
+#new-attacks-screen Select{
+	width:30%;
+	height:100%;
+	outline:none;
+	border:none;
+	background:transparent;
+}
+
+Select.-expanded SelectCurrent {
+        background: transparent;
+        color: white;
+}
+
+#new-attacks-screen Select:focus{
+	width:30%;
+	height:100%;
+	border:none;
+	background:transparent;
+}
+
+#new-attacks-screen #victim{
+	border: solid red;	
+}
+
+#new-attacks-screen #ip{
+	border: solid violet;	
+}
+
+#new-attacks-screen #is_at{
+	border: solid cyan;	
+}
