@@ -1,19 +1,32 @@
-
+from textual.widgets import Select
+from src import hosts
 class Attack():
 
     def __init__(self,victim:str="",ip:str="",is_at:str="",forwarding:bool=False):
         self.victim =victim #Host()
         self.ip = ip #ip usurped
         self.is_at = is_at # mac falsly transmitted
+        self.forwarding=forwarding
 
     def getVictim(self):
-        return self.victim
+        if type(self.victim) is hosts.Host :
+            return self.victim
+        else:
+            return Select.NULL
     def getVictimIp(self):
-        return self.victim.getIp()
+        if self.victim is not None:
+            return self.victim.getIp()
+        else:
+            return Select.NULL
     def getIp(self):
-        return self.ip
+        if self.ip is not None:
+            return self.ip
+        else: return Select.NULL
     def getIs_at(self):
-        return self.is_at
+        if self.is_at  is not None:
+            return self.is_at
+        else:
+            return Select.NULL
     def getForwarding(self):
         return self.forwarding
     def setVictim(self,victim):

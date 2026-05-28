@@ -69,7 +69,7 @@ class AttackWidget(VerticalScroll):
             table=self.query_one(DataTable)
             table.clear(columns=False)
             for a in self.app.attacks:
-                row = (a.getVictimIp(),a.getIp(),a.getIs_at())
+                row = (a.getVictimIp(),a.getIp(),a.getIs_at(),a.getForwarding())
                 label= Text(str(table.row_count), style="italic #03AC13", justify="right")
                 table.add_row(*row,label=label)
 
@@ -93,10 +93,10 @@ class NewAttackScreen(ModalScreen):
     def compose(self):
         hosts=self.app.hosts
         with Container():
-            yield Select(options=[(h.getIp(),h) for h in hosts],id="victim",prompt="Victim's IP", type_to_search=True)
-            yield Select(options=[(h.getIp(),h.getIp()) for h in hosts],id="ip",prompt="IP",type_to_search=True)
-            yield Select(options=[(f"{h.getMac()} - {h.getIp()}",str(h.getMac())) for h in hosts],prompt="Is at",id="is_at",type_to_search=True)
-            yield Switch(id="forwarding_switch")
+            yield Select(options=[(h.getIp(),h) for h in hosts],id="victim",prompt="Victim's IP", type_to_search=True,allow_blank=True)
+            yield Select(options=[(h.getIp(),h.getIp()) for h in hosts],id="ip",prompt="IP",type_to_search=True,allow_blank=True)
+            yield Select(options=[(f"{h.getMac()} - {h.getIp()}",str(h.getMac())) for h in hosts],prompt="Is at",id="is_at",type_to_search=True,allow_blank=True)
+            yield Switch(id="forwarding")
         yield Footer()
 
     @on(Select.Changed)
@@ -112,12 +112,13 @@ class NewAttackScreen(ModalScreen):
         self.query_one("#is_at").border_title="Is at"
 
         if self.edit is not None:
-            self.query_one('#victim').value=self.edit.victim
-            self.query_one('#victim').title=self.edit.victim.getIp()
+            self.query_one('#victim').value=self.edit.getVictim()
+            self.query_one('#victim').title=self.edit.getVictimIp()
             self.query_one('#ip').value=self.edit.getIp() 
             self.query_one('#ip').title=self.edit.getIp() 
             self.query_one('#is_at').value=self.edit.getIs_at() 
             self.query_one('#is_at').title=self.edit.getIs_at() 
+            self.query_one('#forwarding').value=self.edit.getForwarding() 
 
         self.query_one(Container).border_title = "New attack"
 
@@ -127,9 +128,12 @@ class NewAttackScreen(ModalScreen):
         
         hosts=self.app.hosts
         if len(hosts)==0:
-            v.set_options([("No hosts discovered yet","None")])
-            ip.set_options([("No hosts discovered yet","None" )])
-            is_at.set_options([("No hosts discovered yet","None")])
+            v.prompt="No hosts discovered yet"
+            ip.prompt="No hosts discovered yet"
+            is_at.prompt="No hosts discovered yet"
+            #v.set_options([("N",None)])
+            #ip.set_options([("No hosts discovered yet","" )])
+            #is_at.set_options([("No hosts discovered yet","")])
         #else :
         #    for h in self.app.hosts:
         #        v.set_options([(h.getMac(),h) for h in hosts])
@@ -142,6 +146,7 @@ class NewAttackScreen(ModalScreen):
         v=self.query_one("#victim")
         ip=self.query_one("#ip")
         is_at=self.query_one("#is_at")
-        forwarding=self.query_one("#forwarding_switch")
-        selected_options = (v.selection,ip.selection,is_at.selection,forwarding) # type Host
+        forwarding=self.query_one("#forwarding")
+        selected_options = (v.selection,ip.selection,is_at.selection,forwarding.value) # type Host
+        log(locals())
         self.dismiss(selected_options)
