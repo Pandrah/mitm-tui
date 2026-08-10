@@ -2,7 +2,10 @@ from scapy.all import getmacbyip
 import socket 
 from textual import log
 from os import getuid
-
+import subprocess
+import re
+from textual.widgets import RichLog
+import asyncio
 class Host():
    hosts=[]
    def __init__(self,hostname="",ip="",mac="",interface_name="",method=""):
@@ -57,8 +60,19 @@ class Host():
    async def pingHost(self):
         proc = await asyncio.create_subprocess_exec("ping","-c1",ip,stdout=asyncio.subprocess.DEVNULL) # subprocess.run(['ping','-c1',ip])
         await proc.wait()
-        if proc.returncode  ==0 :
+        if proc.returncode == 0 :
             return True
         else:
             return False
 
+   async def resolveHostname(self):
+        #l.write(f"resolving hostname of {self.ip}")
+        proc = subprocess.run(["nmap","-sL",self.ip],capture_output=True) 
+        if proc.returncode == 0 :
+            match = re.search(r"(?<=Nmap scan report for ).+(?=\s\(\d+\.\d+\.\d+\.\d+)",proc.stdout.decode())
+            if match !=None:
+                self.hostname = match.group()
+            #l.write(f'resolved hostname {self.hostname}')
+            return True
+        else:
+            return False

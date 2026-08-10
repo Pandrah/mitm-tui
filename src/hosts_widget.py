@@ -1,5 +1,5 @@
 import math
-from textual import work
+from textual import work,log
 from textual.app import App, ComposeResult
 from textual.widgets import Footer, Header, TextArea, Static, DataTable, SelectionList, ProgressBar
 from textual.containers import Horizontal, Vertical, VerticalScroll, HorizontalGroup, VerticalGroup, Container
@@ -19,7 +19,9 @@ from src import warning
 class HostWidget(VerticalScroll):
     
     CSS_PATH = "../assets/host-widget.tcss"
-    BINDINGS = [("s", "scan", "Scan hosts"),("r","refresh","Refresh (feature not available)")]
+    BINDINGS = [("s", "scan", "Scan hosts"),
+                ("r","refresh","Refresh (feature not available)"),
+                ("h","resolve_hostnames","Resolve hostnames")]
 
     
     hostsHeaders=("hostname","time","ip","mac","interface","method")
@@ -44,7 +46,7 @@ class HostWidget(VerticalScroll):
         #self.set_interval(1, self.drawTable) #nul car re scroll
         return
     
-    def drawTable(self)-> None: #function that fill the table 
+    def drawTable(self)-> None: # Draw or redraw table
         table=self.query_one(DataTable)
         table.clear(columns=False)
         for h in self.app.hosts:
@@ -53,16 +55,23 @@ class HostWidget(VerticalScroll):
             table.add_row(*row,label=label)
 
     async def action_refresh(self):
+        log("Refreshing")
         for h in self.app.hosts:
-            if not h.pingHost():
+            if not await h.pingHost():
                 self.app.hosts_ips.remove(h.getIp())
                 self.app.hosts.remove(h)
             else: 
                 if h.getMac()=="Unavailable":
-                    h.setMac()
+                   h.setMac()
         self.drawTable()
         #TODO code this
         return
+
+    async def action_resolve_hostnames(self):
+        log("resolving hostname")
+        for h in self.app.hosts:
+            await h.resolveHostname()
+        self.drawTable()
 
     async def action_scan(self): #fonction qui invoque l'écran de scan
 
@@ -102,6 +111,7 @@ class HostWidget(VerticalScroll):
         self.drawTable()
         return
         # pour le moment on affiche l'interface cliquée
+
     @work(thread=True)
     async def arp_scan(self,interface):
         table = self.query_one(DataTable)

@@ -35,3 +35,10 @@ avoir une option pour scan avec scapy (arp comme dans l'exemple, vérifier si le
 TODO:
 
 refresh button for hosts widget, avoid duplicates
+nmap IOXID resolver pour les hostname
+
+pour dev l'app :
+
+$ textual console -x EVENT -x SYSTEM [--port <port>]
+$ ./venv/bin/textual serve --dev main.py [--port <port>]
+
